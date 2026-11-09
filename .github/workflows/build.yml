@@ -1,4 +1,4 @@
-name: Build FrostCore 2.1
+name: Build FrostCore 2.2
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build FrostCore 2.1 APK and root module
+    name: Build FrostCore 2.2 APK and root module
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -88,8 +88,8 @@ jobs:
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
           mkdir -p dist
-          cp "$APK" dist/FrostCore-v2.1-debug.apk
-          ls -lh "$APK" dist/FrostCore-v2.1-debug.apk
+          cp "$APK" dist/FrostCore-v2.2-debug.apk
+          ls -lh "$APK" dist/FrostCore-v2.2-debug.apk
           sha256sum "$APK"
 
       - name: Package flashable root module
@@ -100,17 +100,17 @@ jobs:
           test -f module/service.sh
           test -f module/frostcore.sh
           mkdir -p dist
-          (cd module && zip -qr ../dist/FrostCore-v2.1-module.zip . -x "FrostCore-module.zip")
-          unzip -t dist/FrostCore-v2.1-module.zip
-          unzip -l dist/FrostCore-v2.1-module.zip
+          (cd module && zip -qr ../dist/FrostCore-v2.2-module.zip . -x "FrostCore-module.zip")
+          unzip -t dist/FrostCore-v2.2-module.zip
+          unzip -l dist/FrostCore-v2.2-module.zip
 
       - name: Upload APK and module
         uses: actions/upload-artifact@v4
         with:
-          name: FrostCore-v2.1-build
+          name: FrostCore-v2.2-build
           path: |
-            dist/FrostCore-v2.1-debug.apk
-            dist/FrostCore-v2.1-module.zip
+            dist/FrostCore-v2.2-debug.apk
+            dist/FrostCore-v2.2-module.zip
           if-no-files-found: error
           retention-days: 14
 
@@ -118,7 +118,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: FrostCore-v2.1-build-diagnostics
+          name: FrostCore-v2.2-build-diagnostics
           path: |
             **/build/reports/**
             **/build/outputs/logs/**
