@@ -110,7 +110,7 @@ deep_scan(){
   done < "$PKGS"
 }
 status(){
-  echo "version=2.1"
+  echo "version=2.2"
   echo "mode=$(cat "$BASE/mode" 2>/dev/null)"
   echo "configured_packages=$(wc -l < "$PKGS")"
   echo "owned_cgroups=$(wc -l < "$OWNED")"
@@ -121,7 +121,7 @@ status(){
   echo "log=$LOG"
 }
 daemon(){
-  log "v2.1 daemon started"
+  log "v2.2 daemon started"
   while true; do
     mode=$(cat "$BASE/mode" 2>/dev/null)
     case "$mode" in
@@ -147,6 +147,19 @@ case "$1" in
   freeze) pkg="$2"; valid_pkg "$pkg" || { echo "invalid package"; exit 2; }; freeze_pkg "$pkg" ;;
   thaw) thaw_owned ;;
   thaw-pkg) pkg="$2"; valid_pkg "$pkg" || { echo "invalid package"; exit 2; }; thaw_pkg "$pkg" ;;
+  force-stop)
+    pkg="$2"
+    valid_pkg "$pkg" || { echo "invalid package"; exit 2; }
+    [ "$pkg" = "dev.frostcore.app" ] && { echo "refusing to stop FrostCore itself"; exit 3; }
+    if am force-stop --user current "$pkg"; then
+      log "FORCE_STOP $pkg"
+      echo "Force-stopped $pkg"
+    else
+      log "FORCE_STOP_FAILED $pkg"
+      echo "Force-stop failed: $pkg"
+      exit 1
+    fi
+    ;;
   add) pkg="$2"; valid_pkg "$pkg" || { echo "invalid package"; exit 2; }; grep -qxF "$pkg" "$PKGS" 2>/dev/null || echo "$pkg" >> "$PKGS"; echo "Added $pkg" ;;
   remove) pkg="$2"; valid_pkg "$pkg" || { echo "invalid package"; exit 2; }; grep -vxF "$pkg" "$PKGS" > "$PKGS.tmp" 2>/dev/null; mv "$PKGS.tmp" "$PKGS"; rm -f "$DEEP_STATE/$pkg".*; echo "Removed $pkg" ;;
   reload) echo "reloaded; mode=$(cat "$BASE/mode" 2>/dev/null)" ;;
