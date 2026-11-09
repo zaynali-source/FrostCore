@@ -35,15 +35,15 @@ jobs:
           set -euo pipefail
           SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
-          mkdir -p "$SDK_ROOT/licenses"
+          sudo mkdir -p "$SDK_ROOT/licenses"
           printf '%s\n' \
             '24333f8a63b6825ea9c5514f83c2829b004d1fee' \
             '8933bad161af4178b1185d1a37fbf41ea5269c55' \
             'd56f5187479451eabf01fb78af6dfcb131a6481e' \
-            > "$SDK_ROOT/licenses/android-sdk-license"
+            | sudo tee "$SDK_ROOT/licenses/android-sdk-license" >/dev/null
           printf '%s\n' '84831b9409646a918e30573bab4c9c91346d8abd' \
-            > "$SDK_ROOT/licenses/android-sdk-preview-license"
-          chmod -R a+rwX "$SDK_ROOT"
+            | sudo tee "$SDK_ROOT/licenses/android-sdk-preview-license" >/dev/null
+          sudo chmod -R a+rwX "$SDK_ROOT"
 
       - name: Install Android SDK platform
         shell: bash
