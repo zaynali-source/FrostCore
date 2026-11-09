@@ -155,7 +155,7 @@ private fun FrostScreen(activity: Activity) {
         Thread {
             var stopped = 0
             targets.forEach { pkg ->
-                val result = root("am force-stop --user current '${pkg}'")
+                val result = root("/data/adb/frostcore/frostcore.sh force-stop '${pkg}'")
                 if (!result.startsWith("Root command failed") && !result.startsWith("Root unavailable")) stopped++
             }
             activity.runOnUiThread {
@@ -179,7 +179,7 @@ private fun FrostScreen(activity: Activity) {
             TopAppBar(
                 title = { Column {
                     Text("FrostCore", style = MaterialTheme.typography.titleLarge)
-                    Text("APP FREEZER  ·  VERSION 2.1", style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
+                    Text("APP FREEZER  ·  VERSION 2.2", style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
                 } },
                 actions = {
                     IconButton(onClick = {
