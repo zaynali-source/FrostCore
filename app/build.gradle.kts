@@ -12,11 +12,10 @@ android {
         applicationId = "dev.frostcore.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0-alpha"
+        versionCode = 200
+        versionName = "2.0"
     }
 
-    // Keep javac and Kotlin bytecode targets aligned; CI runs on JDK 17.
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
