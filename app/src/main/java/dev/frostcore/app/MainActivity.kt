@@ -14,6 +14,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -26,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
@@ -96,8 +100,10 @@ private fun FrostScreen(activity: Activity) {
         Thread {
             val list = root("cat /data/adb/frostcore/packages 2>/dev/null")
             val stat = root("/data/adb/frostcore/frostcore.sh status 2>&1")
+            val actualMode = root("cat /data/adb/frostcore/mode 2>/dev/null").trim()
             activity.runOnUiThread {
                 configured = list.lines().map { it.trim() }.filter { safePkg(it) }.toSet()
+                if (actualMode in setOf("manual", "auto", "deep")) mode = actualMode
                 status = stat
             }
         }.start()
@@ -142,6 +148,22 @@ private fun FrostScreen(activity: Activity) {
     )
     val suggested = apps.filter { !it.system && it.pkg in suggestedIds && it.pkg !in configured &&
         (it.label.contains(query, true) || it.pkg.contains(query, true)) }
+
+    fun forceStopSelected() {
+        val targets = selected.filter { safePkg(it) && it != activity.packageName }.toSet()
+        if (targets.isEmpty()) { status = "Select at least one app first"; return }
+        Thread {
+            var stopped = 0
+            targets.forEach { pkg ->
+                val result = root("am force-stop --user current '${pkg}'")
+                if (!result.startsWith("Root command failed") && !result.startsWith("Root unavailable")) stopped++
+            }
+            activity.runOnUiThread {
+                selected = selected - targets
+                status = "Force-stopped $stopped of ${targets.size} selected apps"
+            }
+        }.start()
+    }
 
     MaterialTheme(colorScheme = if (dark) darkColorScheme(
         primary = Color(0xFF9CCBFF), secondary = Color(0xFFB8C9DC),
@@ -265,6 +287,12 @@ private fun FrostScreen(activity: Activity) {
                         OutlinedButton(onClick = { changePackages(selected, true) }, modifier = Modifier.weight(1f), enabled = selected.isNotEmpty()) { Text("Add selected (${selected.size})") }
                         OutlinedButton(onClick = { changePackages(selected, false) }, modifier = Modifier.weight(1f), enabled = selected.isNotEmpty()) { Text("Remove selected") }
                     }
+                    Button(
+                        onClick = { forceStopSelected() },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = selected.isNotEmpty(),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) { Text("Force stop selected apps  ·  ${selected.size}") }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
                         Button(onClick = {
                             Thread { val result = root("/data/adb/frostcore/frostcore.sh thaw-all"); activity.runOnUiThread { status = result } }.start()
@@ -274,7 +302,7 @@ private fun FrostScreen(activity: Activity) {
                 }
                 item {
                     Text(
-                        "Deep Freeze force-stops selected apps after they leave foreground. System apps can be critical: freeze only apps you understand. Notifications, sync and alarms may be interrupted.",
+                        "Force stop uses Android's package-level force-stop (not a raw PID kill), stopping all processes and background components for each selected package. System apps can be critical. Deep mode and force-stop may interrupt notifications, sync and alarms.",
                         style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 4.dp)
                     )
@@ -329,6 +357,8 @@ private fun AppSection(
                                 .padding(horizontal = 4.dp, vertical = 5.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            AppIcon(app)
+                            Spacer(Modifier.width(10.dp))
                             Checkbox(checked = app.pkg in selected, onCheckedChange = { onSelect(app.pkg, it) })
                             Column(Modifier.weight(1f)) {
                                 Text(app.label, style = MaterialTheme.typography.bodyMedium)
@@ -339,6 +369,31 @@ private fun AppSection(
                     }
                 }
             }
+        }
+    }
+}
+
+
+@Composable
+private fun AppIcon(app: AppEntry) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val bitmap = remember(app.pkg) {
+        runCatching {
+            val drawable = context.packageManager.getApplicationIcon(app.pkg)
+            val width = drawable.intrinsicWidth.coerceIn(1, 144)
+            val height = drawable.intrinsicHeight.coerceIn(1, 144)
+            Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { image ->
+                val canvas = Canvas(image)
+                drawable.setBounds(0, 0, width, height)
+                drawable.draw(canvas)
+            }.asImageBitmap()
+        }.getOrNull()
+    }
+    if (bitmap != null) {
+        Image(bitmap = bitmap, contentDescription = app.label, modifier = Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)))
+    } else {
+        Surface(modifier = Modifier.size(42.dp), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
+            Box(contentAlignment = Alignment.Center) { Text(app.label.take(1).uppercase()) }
         }
     }
 }
