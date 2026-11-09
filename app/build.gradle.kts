@@ -3,9 +3,11 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
 android {
     namespace = "dev.frostcore.app"
     compileSdk = 35
+
     defaultConfig {
         applicationId = "dev.frostcore.app"
         minSdk = 26
@@ -13,7 +15,20 @@ android {
         versionCode = 1
         versionName = "0.1.0-alpha"
     }
+
+    // Keep javac and Kotlin bytecode targets aligned; CI runs on JDK 17.
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
 }
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
+}
+
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2025.02.00"))
     implementation("androidx.activity:activity-compose:1.10.1")
