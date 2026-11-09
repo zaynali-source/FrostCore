@@ -1,4 +1,4 @@
-name: Build FrostCore
+name: Build FrostCore 2.0
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build APK and root module
+    name: Build FrostCore 2.0 APK and root module
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -36,12 +36,12 @@ jobs:
           SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
           sudo mkdir -p "$SDK_ROOT/licenses"
-          printf '%s\n' \
+          printf '%s\\n' \
             '24333f8a63b6825ea9c5514f83c2829b004d1fee' \
             '8933bad161af4178b1185d1a37fbf41ea5269c55' \
             'd56f5187479451eabf01fb78af6dfcb131a6481e' \
             | sudo tee "$SDK_ROOT/licenses/android-sdk-license" >/dev/null
-          printf '%s\n' '84831b9409646a918e30573bab4c9c91346d8abd' \
+          printf '%s\\n' '84831b9409646a918e30573bab4c9c91346d8abd' \
             | sudo tee "$SDK_ROOT/licenses/android-sdk-preview-license" >/dev/null
           sudo chmod -R a+rwX "$SDK_ROOT"
 
@@ -69,6 +69,15 @@ jobs:
           gradle --version
           test -d "$ANDROID_HOME/platforms/android-35"
 
+      - name: Validate root scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          sh -n module/frostcore.sh
+          sh -n module/service.sh
+          sh -n module/post-fs-data.sh
+          sh -n module/uninstall.sh
+
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace --warning-mode all clean assembleDebug
 
@@ -78,7 +87,9 @@ jobs:
           set -euo pipefail
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
-          ls -lh "$APK"
+          mkdir -p dist
+          cp "$APK" dist/FrostCore-v2.0-debug.apk
+          ls -lh "$APK" dist/FrostCore-v2.0-debug.apk
           sha256sum "$APK"
 
       - name: Package flashable root module
@@ -89,16 +100,17 @@ jobs:
           test -f module/service.sh
           test -f module/frostcore.sh
           mkdir -p dist
-          (cd module && zip -qr ../dist/FrostCore-module.zip .)
-          unzip -l dist/FrostCore-module.zip
+          (cd module && zip -qr ../dist/FrostCore-v2.0-module.zip . -x "FrostCore-module.zip")
+          unzip -t dist/FrostCore-v2.0-module.zip
+          unzip -l dist/FrostCore-v2.0-module.zip
 
       - name: Upload APK and module
         uses: actions/upload-artifact@v4
         with:
-          name: FrostCore-build
+          name: FrostCore-v2.0-build
           path: |
-            app/build/outputs/apk/debug/app-debug.apk
-            dist/FrostCore-module.zip
+            dist/FrostCore-v2.0-debug.apk
+            dist/FrostCore-v2.0-module.zip
           if-no-files-found: error
           retention-days: 14
 
@@ -106,7 +118,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: FrostCore-build-diagnostics
+          name: FrostCore-v2.0-build-diagnostics
           path: |
             **/build/reports/**
             **/build/outputs/logs/**
