@@ -1,6 +1,6 @@
 id=frostcore
 name=FrostCore App Freezer
-version=2.1
-versionCode=210
+version=2.2
+versionCode=220
 author=FrostCore Project
-description=Root app manager with cgroup freeze and delayed Deep Freeze mode
+description=Root app manager with cgroup freeze, package force-stop and delayed Deep Freeze mode
