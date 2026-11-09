@@ -110,7 +110,7 @@ deep_scan(){
   done < "$PKGS"
 }
 status(){
-  echo "version=2.0"
+  echo "version=2.1"
   echo "mode=$(cat "$BASE/mode" 2>/dev/null)"
   echo "configured_packages=$(wc -l < "$PKGS")"
   echo "owned_cgroups=$(wc -l < "$OWNED")"
@@ -121,7 +121,7 @@ status(){
   echo "log=$LOG"
 }
 daemon(){
-  log "v2.0 daemon started"
+  log "v2.1 daemon started"
   while true; do
     mode=$(cat "$BASE/mode" 2>/dev/null)
     case "$mode" in
