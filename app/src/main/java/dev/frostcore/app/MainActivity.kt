@@ -43,6 +43,13 @@ fun FrostScreen(activity: Activity) {
     var mode by remember { mutableStateOf("manual") }
     var busy by remember { mutableStateOf(false) }
 
+    fun runRoot(command: String) {
+        Thread {
+            val result = root(command)
+            activity.runOnUiThread { status = result }
+        }.start()
+    }
+
     LaunchedEffect(Unit) {
         apps = withContext(Dispatchers.IO) {
             val pm = activity.packageManager
@@ -52,29 +59,35 @@ fun FrostScreen(activity: Activity) {
                 .map { AppEntry(pm.getApplicationLabel(it).toString(), it.packageName) }
                 .sortedBy { it.label.lowercase() }
         }
-        status = withContext(Dispatchers.IO) { root("cat /data/adb/frostcore/status.txt 2>/dev/null; echo; test -x /data/adb/frostcore/frostcore.sh && echo MODULE_OK || echo MODULE_NOT_FOUND") }
+        status = withContext(Dispatchers.IO) {
+            root("cat /data/adb/frostcore/status.txt 2>/dev/null; /data/adb/frostcore/frostcore.sh status 2>&1; test -x /data/adb/frostcore/frostcore.sh && echo MODULE_OK || echo MODULE_NOT_FOUND")
+        }
     }
 
     MaterialTheme(colorScheme = lightColorScheme(primary = androidx.compose.ui.graphics.Color(0xFF386A8F), secondary = androidx.compose.ui.graphics.Color(0xFF526477))) {
-        Scaffold(topBar = { TopAppBar(title = { Column { Text("FrostCore"); Text("Root app freezer · Alpha", style = MaterialTheme.typography.labelSmall) } }) }) { pad ->
+        Scaffold(topBar = {
+            TopAppBar(title = {
+                Column {
+                    Text("FrostCore")
+                    Text("Root App Manager · v2.0", style = MaterialTheme.typography.labelSmall)
+                }
+            })
+        }) { pad ->
             Column(Modifier.fillMaxSize().padding(pad).padding(16.dp)) {
                 Text("Controller", style = MaterialTheme.typography.titleMedium)
                 Text(status, style = MaterialTheme.typography.bodySmall)
                 Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = mode == "manual", onClick = {
-                        mode = "manual"; busy = true
-                    }, label = { Text("Manual") })
-                    FilterChip(selected = mode == "auto", onClick = {
-                        mode = "auto"; busy = true
-                    }, label = { Text("Auto · screen off") })
-                    Button(onClick = {
-                        busy = true
-                    }) { Text("Apply") }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(selected = mode == "manual", onClick = { mode = "manual"; busy = true }, label = { Text("Manual") })
+                    FilterChip(selected = mode == "auto", onClick = { mode = "auto"; busy = true }, label = { Text("Screen-off") })
+                    FilterChip(selected = mode == "deep", onClick = { mode = "deep"; busy = true }, label = { Text("Deep Freeze") })
                 }
+                Button(onClick = { busy = true }, enabled = !busy) { Text(if (busy) "Applying…" else "Apply mode") }
                 LaunchedEffect(busy, mode) {
                     if (busy) {
-                        status = withContext(Dispatchers.IO) { root("mkdir -p /data/adb/frostcore; echo $mode > /data/adb/frostcore/mode; /data/adb/frostcore/frostcore.sh reload 2>&1") }
+                        status = withContext(Dispatchers.IO) {
+                            root("mkdir -p /data/adb/frostcore; echo $mode > /data/adb/frostcore/mode; /data/adb/frostcore/frostcore.sh reload 2>&1")
+                        }
                         busy = false
                     }
                 }
@@ -86,45 +99,31 @@ fun FrostScreen(activity: Activity) {
                 }
                 LazyColumn(Modifier.weight(1f)) {
                     items(apps.filter { it.label.contains(query, true) || it.pkg.contains(query, true) }, key = { it.pkg }) { app ->
-                        var selected by remember { mutableStateOf(false) }
+                        var protected by remember { mutableStateOf(false) }
+                        val safe = app.pkg.replace(Regex("[^A-Za-z0-9._]"), "")
                         Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                             Column(Modifier.weight(1f)) {
                                 Text(app.label, style = MaterialTheme.typography.bodyLarge)
                                 Text(app.pkg, style = MaterialTheme.typography.labelSmall)
-                            }
-                            Column {
+                                Row {
+                                    TextButton(onClick = { runRoot("/data/adb/frostcore/frostcore.sh freeze '$safe'") }) { Text("Freeze") }
+                                    TextButton(onClick = { runRoot("/data/adb/frostcore/frostcore.sh thaw-pkg '$safe'") }) { Text("Thaw") }
+                                }
                                 Row {
                                     TextButton(onClick = {
-                                        val safe = app.pkg.replace(Regex("[^A-Za-z0-9._]"), "")
-                                        Thread {
-                                            val result = root("/data/adb/frostcore/frostcore.sh freeze '$safe'")
-                                            activity.runOnUiThread { status = result }
-                                        }.start()
-                                    }) { Text("Freeze") }
+                                        runRoot("mkdir -p /data/adb/frostcore; /data/adb/frostcore/frostcore.sh add '$safe'")
+                                    }) { Text("Add to list") }
                                     TextButton(onClick = {
-                                        Thread {
-                                            val result = root("/data/adb/frostcore/frostcore.sh thaw-pkg '${app.pkg}'")
-                                            activity.runOnUiThread { status = result }
-                                        }.start()
-                                    }) { Text("Thaw") }
-                                    TextButton(onClick = {
-                                        val safe = app.pkg.replace(Regex("[^A-Za-z0-9._]"), "")
-                                        Thread {
-                                            val result = root("mkdir -p /data/adb/frostcore; grep -qxF '$safe' /data/adb/frostcore/packages 2>/dev/null || echo '$safe' >> /data/adb/frostcore/packages")
-                                            activity.runOnUiThread { status = "Added to Auto list: $result" }
-                                        }.start()
-                                    }) { Text("Auto") }
+                                        runRoot("mkdir -p /data/adb/frostcore; /data/adb/frostcore/frostcore.sh add '$safe'; echo deep > /data/adb/frostcore/mode; /data/adb/frostcore/frostcore.sh reload")
+                                        mode = "deep"
+                                    }) { Text("Deep Freeze") }
                                 }
                                 Row {
                                     Text("Protect", style = MaterialTheme.typography.labelSmall)
-                                    Switch(checked = selected, onCheckedChange = {
-                                        selected = it
-                                        val safe = app.pkg.replace(Regex("[^A-Za-z0-9._]"), "")
-                                        Thread {
-                                            val cmd = if (it) "grep -qxF '$safe' /data/adb/frostcore/whitelist 2>/dev/null || echo '$safe' >> /data/adb/frostcore/whitelist" else "sed -i '/^$safe$/d' /data/adb/frostcore/whitelist"
-                                            val result = root("mkdir -p /data/adb/frostcore; $cmd")
-                                            activity.runOnUiThread { status = result }
-                                        }.start()
+                                    Switch(checked = protected, onCheckedChange = {
+                                        protected = it
+                                        val cmd = if (it) "grep -qxF '$safe' /data/adb/frostcore/whitelist 2>/dev/null || echo '$safe' >> /data/adb/frostcore/whitelist" else "grep -vxF '$safe' /data/adb/frostcore/whitelist > /data/adb/frostcore/whitelist.tmp 2>/dev/null; mv /data/adb/frostcore/whitelist.tmp /data/adb/frostcore/whitelist"
+                                        runRoot("mkdir -p /data/adb/frostcore; $cmd")
                                     })
                                 }
                             }
@@ -133,10 +132,13 @@ fun FrostScreen(activity: Activity) {
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { status = "Emergency thaw…"; Thread { val r = root("/data/adb/frostcore/frostcore.sh thaw-all"); activity.runOnUiThread { status = r } }.start() }) { Text("Emergency Thaw") }
-                    OutlinedButton(onClick = { Thread { val r = root("/data/adb/frostcore/frostcore.sh status"); activity.runOnUiThread { status = r } }.start() }) { Text("Refresh status") }
+                    Button(onClick = { runRoot("/data/adb/frostcore/frostcore.sh thaw-all") }) { Text("Emergency Thaw") }
+                    OutlinedButton(onClick = { runRoot("/data/adb/frostcore/frostcore.sh status") }) { Text("Refresh") }
                 }
-                Text("Alpha warning: only manage non-critical user apps. Switch currently edits whitelist; use the module config for exact freeze policy.", style = MaterialTheme.typography.labelSmall)
+                Text(
+                    "Deep Freeze force-stops selected apps after they leave foreground for 8 seconds. Android relaunches them when you tap their icon. Notifications, background sync and alarms may be interrupted. Protect critical apps.",
+                    style = MaterialTheme.typography.labelSmall
+                )
             }
         }
     }
