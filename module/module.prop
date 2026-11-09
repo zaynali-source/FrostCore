@@ -1,0 +1,6 @@
+id=frostcore
+name=FrostCore App Freezer
+version=0.1.0-alpha
+versionCode=1
+author=OpenAI
+description=Conservative cgroup v2 app freezer for rooted Android
